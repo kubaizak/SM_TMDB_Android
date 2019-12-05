@@ -43,17 +43,5 @@ class MoviesViewModel(private val repository: MoviesRepositoryInterface): ViewMo
 
             movie
         }.await()
-
-
-//        var movie: TmdbMovieDetails? = null
-//
-//        localScope.launch {
-//            movie = repository.getMovie(id)
-////            movie?.let{
-////                it.posterFullPath = repository.getMoviePosterUrl(it)
-////            }
-//        }
-//
-//        return movie
     }
 }

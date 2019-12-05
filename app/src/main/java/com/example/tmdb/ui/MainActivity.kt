@@ -34,62 +34,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Path
 
-
-data class TmdbMovieTest(
-    val id: Int,
-    val vote_average: Double,
-    val title: String,
-    val overview: String,
-    val adult: Boolean
-)
-
-data class TmdbMovieResponseTest(
-    var results: List<TmdbMovieTest>,
-    var page: Int,
-    var total_results: Int,
-    var total_pages: Int
-)
-
-interface TmdbService{
-    @GET("3/movie/popular")
-    fun getPopularMovie(): Call<TmdbMovieResponseTest>
-}
-
-class ApiInterceptor: Interceptor{
-    override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
-        val newUrl = chain.request().url
-            .newBuilder()
-            .addQueryParameter("api_key", "5670a072865c4667b914bf52598d8344")
-            .build()
-
-        val request = chain.request()
-            .newBuilder()
-            .url(newUrl)
-            .build()
-
-        return chain.proceed(request)
-    }
-}
-
-data class Todo(
-    val id: Int = 0,
-    val title: String = "",
-    val completed: Boolean = false
-)
-
-interface Webservice {
-    @GET("/todos/{id}")
-    fun getTodo(@Path(value = "id") todoId: Int): Call<Todo>
-}
-
 class MainActivity : AppCompatActivity() {
-
-    val webservice by lazy{
-        Retrofit.Builder()
-            .baseUrl("https://jsonplaceholder.typicode.com/")
-            .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
-            .build().create(Webservice::class.java)
-    }
 
     val job = Job()
     val localScope= CoroutineScope(Dispatchers.Main + job)
@@ -98,10 +43,6 @@ class MainActivity : AppCompatActivity() {
 
     var shareDialog: ShareDialog? = null
 
-    suspend fun test(): Int{
-        delay(1000)
-        return 3
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -123,97 +64,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
-
-        button.setOnClickListener {
-
-            vm.loadPopularMovies(2)
-//
-//            val tmdbApiClient = TmdbApiFactory.create()
-//            val repository = MoviesRepository(api = tmdbApiClient)
-//
-//            localScope.launch {
-//
-//                val u =tmdbApiClient.getTopRatedMovies()
-//                val x = repository.getPopularMovies()
-//                Log.i("String", "String")
-//            }
-
-
-//            localScope.launch {
-//
-//
-//                withContext(Dispatchers.IO){
-//
-//                    val total = tmdbApiClient.getPopularMovies().totalResults
-//                    Log.i("DUPA", "$total")
-////                    tmdbApiClient.getPopularMovies().enqueue(object: Callback<TmdbMoviesResponse>{
-////                        override fun onResponse(call: Call<TmdbMoviesResponse>, response: Response<TmdbMoviesResponse>) {
-////                            val movieResponse = response.body()
-////                            Log.i("DUPA", "${movieResponse?.page}")
-////                        }
-////
-////                        override fun onFailure(call: Call<TmdbMoviesResponse>, t: Throwable) {
-////                            t.printStackTrace()
-////                        }
-////                    })
-//                }
-////                tmdbApi.getPopularMovies().
-////                val response = tmdbApi.getPopularMovies().execute().body()
-////                Log.i("DUPA", "${response?.totalPages}")
-//            }
-//            val client = webservice
-//            client.getTodo(1).enqueue(object: Callback<Todo>{
-//                override fun onFailure(call: Call<Todo>, t: Throwable) {
-//                    t.printStackTrace()
-//                }
-//
-//                override fun onResponse(call: Call<Todo>, response: Response<Todo>) {
-//                    if(response.isSuccessful){
-//                        val x = response.body()
-//                        Log.i("DUPA", x.toString())
-//                    }
-//                }
-//            })
-
-
-            return@setOnClickListener
-
-            val url = HttpUrl.Builder()
-                .scheme("https")
-                .host("api.themoviedb.org")
-//                .addPathSegment("3")
-//            .addQueryParameter("api_key", "5670a072865c4667b914bf52598d8344")
-                .build()
-
-            Log.i("TMDB", url.toString())
-
-            val apiInterceptor = ApiInterceptor()
-
-            val client = OkHttpClient
-                .Builder()
-                .addInterceptor(apiInterceptor)
-                .build()
-
-            val retrofit = Retrofit.Builder()
-                .baseUrl(url)
-                .client(client)
-                .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
-                .build()
-
-            val service = retrofit.create(TmdbService::class.java)
-
-            val x = service.getPopularMovie().enqueue(object: Callback<TmdbMovieResponseTest>{
-                override fun onResponse(call: Call<TmdbMovieResponseTest>, response: Response<TmdbMovieResponseTest>) {
-                    val popularMovies = response.body()
-
-                }
-
-                override fun onFailure(call: Call<TmdbMovieResponseTest>, t: Throwable) {
-                    Log.i("TMDB", t.message)
-                }
-            })
-        }
-
 
         callbackManager = CallbackManager.Factory.create()
 
@@ -254,13 +104,13 @@ class MainActivity : AppCompatActivity() {
                     .setContentUrl(Uri.parse("http://developers.facebook.com/android"))
                     .build()
 
-                shareDialog!!.show(linkContent);
+                shareDialog!!.show(linkContent)
             }
         }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        callbackManager!!.onActivityResult(requestCode, resultCode, data);
+        callbackManager!!.onActivityResult(requestCode, resultCode, data)
         super.onActivityResult(requestCode, resultCode, data)
     }
 }
