@@ -2,52 +2,114 @@ package com.example.tmdb.model
 
 import android.provider.Settings
 import android.util.Log
+import androidx.lifecycle.*
 import com.example.tmdb.service.TmdbApi
+import com.example.tmdb.service.TmdbApiFactory
 import kotlinx.coroutines.*
 import okhttp3.HttpUrl
 import retrofit2.http.Url
 import java.net.URL
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URI
+import kotlin.coroutines.CoroutineContext
 
 
-interface MoviesRepositoryInterface{
-    suspend fun getPopularMovies(page: Int = 1): List<TmdbMovie>
+interface MoviesRepositoryInterface: LifecycleObserver{
+    fun getPopularMovies(page: Int = 1): LiveData<List<TmdbMovie>>
 
-    suspend fun getTopRatedMovies(page: Int = 1): List<TmdbMovie>
+    fun getTopRatedMovies(page: Int = 1): LiveData<List<TmdbMovie>>
 
-    suspend fun getUpcomingMovies(page: Int = 1): List<TmdbMovie>
+    fun getUpcomingMovies(page: Int = 1): LiveData<List<TmdbMovie>>
 
-    suspend fun getMovie(id: Int): TmdbMovieDetails?
+    fun getMovie(id: Int): LiveData<TmdbMovieDetails?>
 
-    suspend fun getMoviePosterUrl(movie: TmdbMovieDetails): HttpUrl?
+    fun getMoviePosterUrl(movie: TmdbMovieDetails): LiveData<HttpUrl?>
+
+    fun registerLifecycle(lifecycle: Lifecycle)
 }
 
-class MoviesRepository(private val api: TmdbApi): MoviesRepositoryInterface{
-    private val parentJob = Job()
+class MoviesRepository(private val api: TmdbApi): MoviesRepositoryInterface, CoroutineScope{
+    private var imgConfig: TmdbImagesConfiguration? = null
 
-    private val coroutineScope = CoroutineScope(Dispatchers.Main + parentJob)
+    private val TAG = MoviesRepository::class.java.simpleName
 
-    override suspend fun getPopularMovies(page: Int): List<TmdbMovie>{
-        return api.getPopularMovies(page).results!!
+    private val job = Job()
+
+    override val coroutineContext: CoroutineContext
+        get() = Dispatchers.Main + job
+
+
+    private fun getMovies(getMoviesFun: suspend () -> TmdbMoviesResponse): LiveData<List<TmdbMovie>>{
+        val liveData = MutableLiveData<List<TmdbMovie>>()
+
+        launch{
+            liveData.value = getMoviesFun.invoke().results!!
+        }
+
+        return liveData
     }
 
-    override suspend fun getTopRatedMovies(page: Int): List<TmdbMovie>{
-        return api.getTopRatedMovies().results!!
+    override fun getPopularMovies(page: Int): LiveData<List<TmdbMovie>> {
+        return getMovies { api.getPopularMovies(page) }
     }
 
-    override suspend fun getUpcomingMovies(page: Int) = api.getUpcomingMovies().results!!
+    override fun getTopRatedMovies(page: Int): LiveData<List<TmdbMovie>>{
+        return getMovies { api.getTopRatedMovies(page) }
+    }
 
-    override suspend fun getMovie(id: Int) = api.getMovie(id)
+    override fun getUpcomingMovies(page: Int): LiveData<List<TmdbMovie>> {
+        return getMovies { api.getUpcomingMovies(page) }
+    }
 
-    override suspend fun getMoviePosterUrl(movie: TmdbMovieDetails): HttpUrl? = coroutineScope.async {
-        movie.posterPath?.let { path ->
-            api.getConfiguration().images?.let {
-                it.baseUrl ?: return@let null
-                it.posterSizes ?: return@let null
+    override fun getMovie(id: Int): LiveData<TmdbMovieDetails?> {
+        val liveData = MutableLiveData<TmdbMovieDetails?>()
 
-                return@async "${it.baseUrl}${it.posterSizes!![0]}/$path".toHttpUrlOrNull()
+        launch{
+            liveData.value = api.getMovie(id)
+        }
+
+        return liveData
+    }
+
+    private suspend fun getImageConfiguration(): TmdbImagesConfiguration?{
+        if(imgConfig == null) {
+            imgConfig = async {
+                api.getConfiguration().images
+
+            }.await()
+        }
+
+        return imgConfig
+    }
+
+    override fun getMoviePosterUrl(movie: TmdbMovieDetails): LiveData<HttpUrl?> {
+        val liveData = MutableLiveData<HttpUrl?>()
+
+        launch{
+            movie.posterPath?.let{ path ->
+                liveData.value = getImageConfiguration()?.let{
+                    it.baseUrl ?: return@let null
+                    it.posterSizes ?: return@let null
+
+                    return@let "${it.baseUrl}${it.posterSizes!![0]}/$path".toHttpUrlOrNull()
+                }
             }
         }
-    }.await()
+
+        return liveData
+    }
+
+    override fun registerLifecycle(lifecycle: Lifecycle){
+        lifecycle.addObserver(this)
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
+    private fun cancelJob(){
+        Log.d(TAG, "cancelJob()")
+
+        if(job.isActive) {
+            Log.d(TAG, "Job active, cancelling")
+            job.cancel()
+        }
+    }
 }
