@@ -3,8 +3,6 @@ package com.example.tmdb.service
 import com.example.tmdb.model.TmdbImagesConfigurationResponse
 import com.example.tmdb.model.TmdbMovieDetails
 import com.example.tmdb.model.TmdbMoviesResponse
-import kotlinx.coroutines.Deferred
-import retrofit2.Call
 import retrofit2.http.GET
 import retrofit2.http.Path
 import retrofit2.http.Query

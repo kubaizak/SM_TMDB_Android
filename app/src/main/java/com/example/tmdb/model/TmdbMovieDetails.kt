@@ -1,6 +1,5 @@
 package com.example.tmdb.model
 
-import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
 import okhttp3.HttpUrl
 

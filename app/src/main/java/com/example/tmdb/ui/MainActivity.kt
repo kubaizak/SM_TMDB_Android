@@ -8,10 +8,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
 import com.example.tmdb.R
-import com.example.tmdb.model.MoviesRepository
-import com.example.tmdb.model.MoviesViewModel
-import com.example.tmdb.model.MoviesViewModelFactory
+import com.example.tmdb.app.Injection
+import com.example.tmdb.repository.MoviesRepository
+import com.example.tmdb.ui.movies.MoviesViewModel
+import com.example.tmdb.ui.movies.MoviesViewModelFactory
 import com.example.tmdb.service.TmdbApiFactory
+import com.example.tmdb.ui.movies.MoviesType
 import com.facebook.AccessToken
 import com.facebook.CallbackManager
 import com.facebook.FacebookCallback
@@ -20,19 +22,23 @@ import com.facebook.login.LoginResult
 import com.facebook.share.Sharer
 import com.facebook.share.model.ShareLinkContent
 import com.facebook.share.widget.ShareDialog
-import com.google.gson.GsonBuilder
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.*
-import okhttp3.HttpUrl
-import okhttp3.Interceptor
-import okhttp3.OkHttpClient
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.GET
-import retrofit2.http.Path
+import kotlin.system.measureTimeMillis
+
+var x: Int? = null
+
+suspend fun doSomethingUseful(i: Int): Int {
+    if(x == null) {
+        Log.i("TEST", "Time consuming operation: START: $i")
+        delay(1000L + i) // pretend we are doing something useful here
+        x = 13
+        Log.i("TEST", "Time consuming operation: DONE: $i")
+    }
+
+    Log.i("TEST", "just give me a value($i): $x")
+    return x!!
+}
 
 class MainActivity : AppCompatActivity() {
 
@@ -48,9 +54,46 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-
-        val vmFactory = MoviesViewModelFactory(MoviesRepository(TmdbApiFactory.create()))
+        val vmFactory = Injection.provideViewModelFactory(lifecycle)
         val vm = ViewModelProviders.of(this, vmFactory).get(MoviesViewModel::class.java)
+
+        button.setOnClickListener {
+            GlobalScope.launch(Dispatchers.Unconfined){
+                // synchronous manner
+//                listOf(1, 2, 3, 4, 5).forEachIndexed { index, i ->
+//                    Log.i("TEST", "forEach START: $index")
+//                    var result: Int = 0
+//                    val time = measureTimeMillis {
+//                        result = withContext(Dispatchers.Unconfined) {
+//                            doSomethingUseful(index)
+//                        }
+//                    }
+//                    Log.i("TEST", "forEach END: $index results in $result, took: $time")
+//                }
+
+                // parallel
+                val time = measureTimeMillis {
+                    Log.i("TEST", "START")
+                    val result1 = async {
+                        doSomethingUseful(100)
+                    }
+                    val result2 = async {
+                        doSomethingUseful(50)
+                    }
+                    val result3 = async {
+                        doSomethingUseful(200)
+                    }
+
+                    Log.i("TEST", "BEFORE AWAITS")
+                    Log.i(
+                        "TEST",
+                        "END: results ($x) in ${result1.await()}, ${result2.await()}, ${result3.await()}, VALUE: ${x}"
+                    )
+                }
+                Log.i("TEST", "TIME: $time")
+            }
+//            vm.loadMovies(MoviesType.POPULAR)
+        }
 
         vm.movies.observe(this, Observer{
             it?.let{

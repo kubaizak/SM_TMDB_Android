@@ -1,34 +1,20 @@
-package com.example.tmdb.model
+package com.example.tmdb.repository
 
-import android.provider.Settings
 import android.util.Log
 import androidx.lifecycle.*
+import com.example.tmdb.model.TmdbImagesConfiguration
+import com.example.tmdb.model.TmdbMovie
+import com.example.tmdb.model.TmdbMovieDetails
+import com.example.tmdb.model.TmdbMoviesResponse
 import com.example.tmdb.service.TmdbApi
-import com.example.tmdb.service.TmdbApiFactory
 import kotlinx.coroutines.*
 import okhttp3.HttpUrl
-import retrofit2.http.Url
-import java.net.URL
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import java.net.URI
 import kotlin.coroutines.CoroutineContext
 
+var i = 0
 
-interface MoviesRepositoryInterface: LifecycleObserver{
-    fun getPopularMovies(page: Int = 1): LiveData<List<TmdbMovie>>
-
-    fun getTopRatedMovies(page: Int = 1): LiveData<List<TmdbMovie>>
-
-    fun getUpcomingMovies(page: Int = 1): LiveData<List<TmdbMovie>>
-
-    fun getMovie(id: Int): LiveData<TmdbMovieDetails?>
-
-    fun getMoviePosterUrl(movie: TmdbMovieDetails): LiveData<HttpUrl?>
-
-    fun registerLifecycle(lifecycle: Lifecycle)
-}
-
-class MoviesRepository(private val api: TmdbApi): MoviesRepositoryInterface, CoroutineScope{
+class MoviesRepository(private val api: TmdbApi): Repository, CoroutineScope{
     private var imgConfig: TmdbImagesConfiguration? = null
 
     private val TAG = MoviesRepository::class.java.simpleName
@@ -37,17 +23,6 @@ class MoviesRepository(private val api: TmdbApi): MoviesRepositoryInterface, Cor
 
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + job
-
-
-    private fun getMovies(getMoviesFun: suspend () -> TmdbMoviesResponse): LiveData<List<TmdbMovie>>{
-        val liveData = MutableLiveData<List<TmdbMovie>>()
-
-        launch{
-            liveData.value = getMoviesFun.invoke().results!!
-        }
-
-        return liveData
-    }
 
     override fun getPopularMovies(page: Int): LiveData<List<TmdbMovie>> {
         return getMovies { api.getPopularMovies(page) }
@@ -71,17 +46,6 @@ class MoviesRepository(private val api: TmdbApi): MoviesRepositoryInterface, Cor
         return liveData
     }
 
-    private suspend fun getImageConfiguration(): TmdbImagesConfiguration?{
-        if(imgConfig == null) {
-            imgConfig = async {
-                api.getConfiguration().images
-
-            }.await()
-        }
-
-        return imgConfig
-    }
-
     override fun getMoviePosterUrl(movie: TmdbMovieDetails): LiveData<HttpUrl?> {
         val liveData = MutableLiveData<HttpUrl?>()
 
@@ -99,8 +63,54 @@ class MoviesRepository(private val api: TmdbApi): MoviesRepositoryInterface, Cor
         return liveData
     }
 
+//    override suspend fun getMovieImageUrl(path: String): HttpUrl? = async{
+//            getImageConfiguration()?.let{
+//                it.baseUrl ?: return@let null
+//                it.posterSizes ?: return@let null
+//
+//                return@async "${it.baseUrl}${it.posterSizes!![0]}/$path".toHttpUrlOrNull()
+//            }
+//        }.await()
+
+    override suspend fun getMovieImageUrl(path: String): HttpUrl? {
+        return async {
+            val conf = getImageConfiguration()
+            Log.i("DUPA", "${i}: ${conf.toString()}")
+            conf?.let{ conf
+                conf.baseUrl ?: return@let null
+                conf.posterSizes ?: return@let null
+
+                return@async "${conf.baseUrl}${conf.posterSizes!![0]}/$path".toHttpUrlOrNull()
+            }
+        }.await()
+    }
+
     override fun registerLifecycle(lifecycle: Lifecycle){
         lifecycle.addObserver(this)
+    }
+
+    private fun getMovies(getMoviesFun: suspend () -> TmdbMoviesResponse): LiveData<List<TmdbMovie>>{
+        val liveData = MutableLiveData<List<TmdbMovie>>()
+
+        launch{
+            liveData.value = getMoviesFun.invoke().results!!
+        }
+
+        return liveData
+    }
+
+    private suspend fun getImageConfiguration(): TmdbImagesConfiguration?{
+        if(imgConfig == null) {
+            Log.i("DUPA", "getImageConfigurationAsync: START")
+            imgConfig = async {
+                api.getConfiguration().images
+
+            }.await()
+            Log.i("DUPA", "getImageConfigurationAsync: DONE")
+        }
+
+        Log.i("DUPA", "getImageConfiguration")
+        return imgConfig
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_STOP)

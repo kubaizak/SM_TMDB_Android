@@ -1,6 +1,7 @@
 package com.example.tmdb.model
 
 import com.google.gson.annotations.SerializedName
+import okhttp3.HttpUrl
 
 data class TmdbMovie (
     @SerializedName("popularity")
@@ -43,7 +44,9 @@ data class TmdbMovie (
     var overview: String? = null,
 
     @SerializedName("release_date")
-    var releaseDate: String? = null
+    var releaseDate: String? = null,
+
+    var posterFullPath: HttpUrl? = null
 )
 
 data class TmdbMoviesResponse (
